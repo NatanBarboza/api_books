@@ -50,7 +50,7 @@ uvicorn==0.44.0
 
 ```bash
 git clone https://github.com/NatanBarboza/api_books
-cd books-api
+cd api_books
 ```
 
 ---
