@@ -1,2 +1,5 @@
 .venv/
 .tool-versions
+.vscode/
+*.pyc
+__pycache__/
