@@ -49,7 +49,7 @@ uvicorn==0.44.0
 ### 1. Clonar o repositório
 
 ```bash
-git clone <url-do-repositorio>
+git clone https://github.com/NatanBarboza/api_books
 cd books-api
 ```
 
