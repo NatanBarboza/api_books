@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user_model import User
+from app.repository.revoked_token_repository import RevokedTokenRepository
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login",
@@ -31,9 +32,17 @@ def get_current_user(
         payload = decode_token(token)
         if payload.get("type") != "access":
             raise auth_error
+        jti: str | None = payload.get("jti")
         user_id: str | None = payload.get("sub")
         token_scopes: list[str] = payload.get("scopes", [])
+
+        if not jti or not user_id:
+            raise auth_error
+
     except JWTError:
+        raise auth_error
+    
+    if RevokedTokenRepository(db).is_revoked(jti):
         raise auth_error
     
     user = db.get(User, int(user_id))

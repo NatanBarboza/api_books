@@ -8,6 +8,7 @@ from app.core.security import (
     decode_token
 )
 from app.repository.user_repository import UserRepository
+from app.repository.revoked_token_repository import RevokedTokenRepository
 from app.schema.auth_schema import UserRegister, TokenResponse
 from app.models.user_model import User
 from fastapi import HTTPException, status
@@ -15,6 +16,7 @@ from fastapi import HTTPException, status
 class AuthService:
     def __init__(self, db: Session):
         self.repo = UserRepository(db)
+        self.revoked_repo = RevokedTokenRepository(db)
 
     def register(self, data: UserRegister) -> User:
         if self.repo.get_by_email(data.email):
@@ -53,7 +55,14 @@ class AuthService:
             if payload.get("type") != "refresh":
                 raise ValueError
             user_id: str = payload["sub"]
+            jti: str = payload["jti"]
         except (JWTError, ValueError, KeyError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token."
+            )
+        
+        if self.revoked_repo.is_revoked(jti):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token."
@@ -66,9 +75,21 @@ class AuthService:
                 detail="Invalid username."
             )
         
+        self.revoked_repo.revoke(jti)
+        
         scopes = ["admin"] if user.is_superuser else ["user"]
 
         return TokenResponse(
             access_token=create_access_token(user_id, scopes=scopes),
             refresh_token=create_refresh_token(user_id),
         )
+    
+    def logout(self, access_token: str, refresh_token: str | None = None) -> None:
+        for token in filter(None, [access_token, refresh_token]):
+            try:
+                payload = decode_token(token)
+                jti = payload.get("jti")
+                if jti and not self.revoked_repo.is_revoked(jti):
+                    self.revoked_repo.revoke(jti)
+            except JWTError:
+                pass

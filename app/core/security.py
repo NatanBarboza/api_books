@@ -5,6 +5,7 @@ from jose import JWTError, jwt
 import bcrypt
 import hashlib
 import base64
+import uuid
 
 from app.core.config import get_settings
 
@@ -25,6 +26,7 @@ def _create_token(data: dict[str, Any], expires_delta: timedelta) -> str:
     payload = data.copy()
     payload["iat"] = datetime.now(timezone.utc)
     payload["exp"] = datetime.now(timezone.utc) + expires_delta
+    payload["jti"] = str(uuid.uuid4())
     return jwt.encode(payload, settings.APP_SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def create_access_token(subject: str, scopes: list[str] | None = None) -> str:
