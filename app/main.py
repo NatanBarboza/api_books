@@ -2,8 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import book_routes, auth_routes
 from app.db.session import engine, Base
+from app.core.config import get_settings
 
-app = FastAPI(title="Books API")
+settings = get_settings()
+
+app = FastAPI(title=settings.APP_NAME)
 
 Base.metadata.create_all(bind=engine)
 
