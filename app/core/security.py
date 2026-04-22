@@ -25,7 +25,7 @@ def _create_token(data: dict[str, Any], expires_delta: timedelta) -> str:
     payload = data.copy()
     payload["iat"] = datetime.now(timezone.utc)
     payload["exp"] = datetime.now(timezone.utc) + expires_delta
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(payload, settings.APP_SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def create_access_token(subject: str, scopes: list[str] | None = None) -> str:
     return _create_token(
@@ -47,4 +47,4 @@ def create_refresh_token(subject: str) -> str:
     )
 
 def decode_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    return jwt.decode(token, settings.APP_SECRET_KEY, algorithms=[settings.ALGORITHM])
