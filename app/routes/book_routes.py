@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.schemas.book_schemas import (
+from app.schema.book_schema import (
     BookCreate, 
     BookResponse, 
     BookUpdate
