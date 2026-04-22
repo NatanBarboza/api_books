@@ -1,24 +1,28 @@
 from sqlalchemy.orm import Session
-from app.repository import book_repository
+from app.repository.book_repository import BookRepository
 
-def list_books(db: Session):
-    return book_repository.get_all(db)
+class BookService:
+    def __init__(self, db: Session):
+        self.repo = BookRepository(db)
 
-def get_book(db: Session, book_id: int):
-    return book_repository.get_by_id(db, book_id)
+    def list_books(self):
+        return self.repo.get_all()
 
-def create_book(db: Session, data):
-    return book_repository.create(db, data)
+    def get_book(self, book_id: int):
+        return self.repo.get_by_id(book_id)
 
-def update_book(db: Session, book_id: int, data):
-    book = book_repository.get_by_id(db, book_id)
-    if not book:
-        return None
-    return book_repository.update(db, book, data)
+    def create_book(self, data):
+        return self.repo.create(data)
 
-def delete_book(db: Session, book_id: int):
-    book = book_repository.get_by_id(db, book_id)
-    if not book:
-        return False
-    book_repository.delete(db, book)
-    return True
+    def update_book(self, book_id: int, data):
+        book = self.repo.get_by_id(book_id)
+        if not book:
+            return None
+        return self.repo.update(book, data)
+
+    def delete_book(self, book_id: int):
+        book = self.repo.get_by_id(book_id)
+        if not book:
+            return False
+        self.repo.delete(book)
+        return True
