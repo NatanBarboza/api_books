@@ -128,7 +128,8 @@ Após subir a aplicação, acesse:
 
 * 📝 Registro de usuário com validação de senha
 * 🔑 Login com emissão de access token e refresh token
-* 🔄 Renovação de access token via refresh token
+* 🔄 Renovação de access token via refresh token com rotação
+* 🚪 Logout com revogação imediata dos tokens
 * 👤 Consulta do usuário autenticado (`/auth/me`)
 * 🛡️ Proteção de rotas por escopos (`user` e `admin`)
 
@@ -150,6 +151,7 @@ A API utiliza autenticação baseada em **JWT (JSON Web Tokens)** com dois token
 | `POST` | `/auth/register` | Cadastro de novo usuário | Não |
 | `POST` | `/auth/login` | Login e emissão de tokens | Não |
 | `POST` | `/auth/refresh` | Renovação do access token | Refresh token |
+| `POST` | `/auth/logout` | Logout e revogação dos tokens | Access token |
 | `GET` | `/auth/me` | Dados do usuário logado | Access token |
 
 ### Como autenticar uma requisição
@@ -165,12 +167,23 @@ Authorization: Bearer <access_token>
 * `user` — acesso a rotas de leitura e operações básicas
 * `admin` — acesso total, incluindo operações destrutivas
 
+### Revogação de tokens
+
+A API mantém uma blocklist de tokens revogados na base de dados. Cada token carrega um identificador único (`jti`) no payload, que é registrado na tabela `revoked_tokens` nas seguintes situações:
+
+* **Logout** — revoga imediatamente o access token e, se enviado, o refresh token
+* **Refresh** — o refresh token utilizado é revogado antes de emitir o novo par (rotação de token)
+
+Toda requisição autenticada consulta a blocklist pelo `jti` do token. Um token revogado é rejeitado com `401` mesmo que ainda esteja dentro do prazo de expiração.
+
 ### Segurança
 
 * Senhas passam por pré-hash SHA-256 + base64 antes do bcrypt, evitando o limite de 72 bytes
 * bcrypt com custo 12 para hashing de senhas
 * Mensagens de erro genéricas para evitar enumeração de usuários
 * Escopos embutidos no payload do JWT, sem consulta ao banco por requisição
+* Cada token possui um `jti` (JWT ID) único para rastreamento e revogação individual
+* Rotação de refresh token: cada refresh token só pode ser usado uma única vez
 
 ---
 
@@ -178,33 +191,40 @@ Authorization: Bearer <access_token>
 
 O projeto utiliza **SQLite** como banco de dados padrão para facilitar a execução local. As tabelas são criadas automaticamente na inicialização da aplicação.
 
+### Tabelas
+
+* `books` — dados dos livros
+* `users` — dados dos usuários
+* `revoked_tokens` — blocklist de tokens revogados (identificados pelo `jti`)
+
 ---
 
 ## 🗂️ Estrutura do projeto
 
 ```
 books-api/
-├── .env                  # variáveis de ambiente (não commitado)
-├── .env.example          # modelo de variáveis de ambiente
+├── .env.example                      # modelo de variáveis de ambiente
 ├── .gitignore
 ├── main.py
 ├── run.py
 ├── requirements.txt
 └── app/
     ├── core/
-    │   ├── config.py     # configurações centralizadas
-    │   └── security.py   # hashing e JWT
+    │   ├── config.py                 # configurações centralizadas
+    │   └── security.py              # hashing e JWT
     ├── models/
-    │   └── user.py
-    ├── schemas/
-    │   └── auth.py
-    ├── repositories/
-    │   └── user_repository.py
+    │   ├── user_model.py
+    │   └── revoked_token.py         # model da blocklist
+    ├── schema/
+    │   └── auth_schema.py
+    ├── repository/
+    │   ├── user_repository.py
+    │   └── revoked_token_repository.py
     ├── services/
     │   └── auth_service.py
-    ├── routers/
-    │   ├── auth.py
-    │   └── books.py
+    ├── routes/
+    │   ├── auth_routes.py
+    │   └── book_routes.py
     └── dependencies/
         └── auth.py
 ```
@@ -213,8 +233,8 @@ books-api/
 
 ## 🗺️ Próximos passos
 
-* Revogação de refresh tokens (blocklist no banco ou Redis)
 * Proteção das rotas de livros por escopo
+* Limpeza periódica de tokens expirados da blocklist
 * Testes automatizados de autenticação
 * Rate limiting nos endpoints de login e registro
 
