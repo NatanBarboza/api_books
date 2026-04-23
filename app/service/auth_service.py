@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -56,6 +57,7 @@ class AuthService:
                 raise ValueError
             user_id: str = payload["sub"]
             jti: str = payload["jti"]
+            exp: str = payload["exp"]
         except (JWTError, ValueError, KeyError):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,7 +77,9 @@ class AuthService:
                 detail="Invalid username."
             )
         
-        self.revoked_repo.revoke(jti)
+        expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+        
+        self.revoked_repo.revoke(jti, expires_at)
         
         scopes = ["admin"] if user.is_superuser else ["user"]
 
@@ -89,7 +93,9 @@ class AuthService:
             try:
                 payload = decode_token(token)
                 jti = payload.get("jti")
+                exp = payload.get("exp")
                 if jti and not self.revoked_repo.is_revoked(jti):
-                    self.revoked_repo.revoke(jti)
+                    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+                    self.revoked_repo.revoke(jti, expires_at)
             except JWTError:
                 pass
