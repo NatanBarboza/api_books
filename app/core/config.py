@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     APP_DATABASE_URL: str = os.getenv("APP_DATABASE_URL", default="sqlite:///./test.db")
+    TEST_DATABASE_URL: str = os.getenv("TEST_DATABASE_URL", default="sqlite:///./test.db")
 
     class Config:
         env_file = ".env"
