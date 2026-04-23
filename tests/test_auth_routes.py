@@ -1,10 +1,18 @@
 import pytest
+from datetime import datetime, timezone
 from app.core.security import create_access_token, create_refresh_token, hash_password
 from app.models.user_model import User
 from app.models.revoked_token_model import RevokedToken
+from app.main import app, limiter
 
 AUTH_URL = "/auth"
 
+@pytest.fixture(autouse=True)
+def reset_limiter():
+    """Reseta os contadores do rate limiter antes de cada teste."""
+    limiter.reset()
+    yield
+    limiter.reset()
 
 # ---------------------------------------------------------------------------
 # POST /auth/register
@@ -202,7 +210,7 @@ class TestMe:
     def test_me_fails_with_revoked_token(self, client, db, user_token):
         from app.core.security import decode_token
         payload = decode_token(user_token)
-        db.add(RevokedToken(jti=payload["jti"]))
+        db.add(RevokedToken(jti=payload["jti"], expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc)))
         db.commit()
 
         response = client.get(
@@ -280,7 +288,7 @@ class TestRefresh:
 
         from app.core.security import decode_token
         payload = decode_token(refresh_token)
-        db.add(RevokedToken(jti=payload["jti"]))
+        db.add(RevokedToken(jti=payload["jti"], expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc)))
         db.commit()
 
         response = client.post(
