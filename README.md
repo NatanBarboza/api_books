@@ -13,6 +13,7 @@ API REST desenvolvida com foco em demonstrar conceitos de **CRUD (Create, Read, 
 * **Uvicorn** – servidor ASGI para execução da aplicação
 * **bcrypt** – hashing seguro de senhas
 * **python-jose** – geração e validação de tokens JWT
+* **pytest** – testes automatizados
 
 ---
 
@@ -30,9 +31,11 @@ dotenv==0.9.9
 fastapi==0.136.0
 greenlet==3.4.0
 h11==0.16.0
+httpx>=0.27.0
 idna==3.11
 pydantic==2.13.3
 pydantic_core==2.46.3
+pytest>=8.0.0
 python-dotenv==1.2.2
 python-jose[cryptography]>=3.3.0
 SQLAlchemy==2.0.49
@@ -86,14 +89,17 @@ cp .env.example .env
 Edite o `.env` com suas configurações:
 
 ```env
-SECRET_KEY=seu-valor-gerado-com-openssl-rand-hex-32
-DATABASE_URL=sqlite:///./books.db
-DEBUG=false
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-REFRESH_TOKEN_EXPIRE_DAYS=7
+# App config
+DEBUG="True"
+APP_NAME="API_V1-BOOKS"
+APP_SECRET_KEY="seu-valor-gerado-com-openssl-rand-hex-32"
+APP_DATABASE_URL="sqlite:///./books.db"
+
+# Tests config
+TEST_DATABASE_URL="sqlite:///./test-env.db"
 ```
 
-Para gerar uma `SECRET_KEY` segura:
+Para gerar um `APP_SECRET_KEY` seguro:
 
 ```bash
 openssl rand -hex 32
@@ -109,8 +115,8 @@ python run.py
 
 Após subir a aplicação, acesse:
 
-* Swagger UI: http://localhost:8000/docs
-* ReDoc: http://localhost:8000/redoc
+* Swagger UI: http://localhost:8080/docs
+* ReDoc: http://localhost:8080/redoc
 
 ---
 
@@ -195,6 +201,45 @@ Toda requisição autenticada consulta a blocklist pelo `jti` do token. Um token
 
 ---
 
+## 🧪 Testes
+
+O projeto possui uma suíte de **43 testes automatizados** cobrindo todos os endpoints.
+
+### Executar todos os testes
+
+```bash
+pytest tests/ -v
+```
+
+### Executar por módulo
+
+```bash
+pytest tests/test_book_routes.py -v
+pytest tests/test_auth_routes.py -v
+```
+
+### Cobertura dos testes
+
+| Módulo | Testes | Cenários cobertos |
+|---|---|---|
+| `test_book_routes.py` | 17 | listagem, busca por ID, criação, edição, exclusão — fluxos felizes, 404, sem auth e escopos insuficientes |
+| `test_auth_routes.py` | 26 | registro, login, `/me`, refresh com rotação, logout com revogação — fluxos felizes, credenciais inválidas, tokens revogados e usuário inativo |
+
+### Estrutura dos testes
+
+```
+books-api/
+├── conftest.py       # fixtures: banco de teste, client, tokens e dados de exemplo
+└── tests/
+    ├── __init__.py
+    ├── test_book_routes.py
+    └── test_auth_routes.py
+```
+
+Os testes utilizam um banco SQLite isolado definido em `TEST_DATABASE_URL` no `.env`, criado e destruído a cada teste para garantir isolamento total entre os casos.
+
+---
+
 ## 🗄️ Banco de dados
 
 O projeto utiliza **SQLite** como banco de dados padrão para facilitar a execução local. As tabelas são criadas automaticamente na inicialização da aplicação.
@@ -213,27 +258,33 @@ O projeto utiliza **SQLite** como banco de dados padrão para facilitar a execu�
 books-api/
 ├── .env.example                        # modelo de variáveis de ambiente
 ├── .gitignore
+├── conftest.py                         # fixtures compartilhadas dos testes
 ├── main.py
 ├── run.py
 ├── requirements.txt
+├── tests/
+│   ├── __init__.py
+│   ├── test_auth_routes.py
+│   └── test_book_routes.py
 └── app/
     ├── core/
     │   ├── config.py                   # configurações centralizadas
     │   └── security.py                 # hashing e JWT
     ├── models/
     │   ├── user_model.py
-    │   └── revoked_token.py            # model da blocklist
+    │   └── revoked_token_model.py      # model da blocklist
     ├── schema/
     │   └── auth_schema.py
     ├── repository/
     │   ├── user_repository.py
     │   └── revoked_token_repository.py
-    ├── services/
-    │   └── auth_service.py
+    ├── service/
+    │   ├── auth_service.py
+    │   └── book_service.py
     ├── routes/
     │   ├── auth_routes.py
     │   └── book_routes.py
-    └── dependencies/
+    └── dependecies/
         └── auth.py
 ```
 
@@ -242,7 +293,6 @@ books-api/
 ## 🗺️ Próximos passos
 
 * Limpeza periódica de tokens expirados da blocklist
-* Testes automatizados de autenticação
 * Rate limiting nos endpoints de login e registro
 * Endpoint para promover usuário a admin sem precisar acessar o banco diretamente
 
