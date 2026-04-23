@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     APP_DATABASE_URL: str = os.getenv("APP_DATABASE_URL", default="sqlite:///./test.db")
     TEST_DATABASE_URL: str = os.getenv("TEST_DATABASE_URL", default="sqlite:///./test.db")
 
+    RATE_LIMIT_LOGIN: str = "5/minute"
+    RATE_LIMIT_REGISTER: str = "3/minute"
+
     class Config:
         env_file = ".env"
 
