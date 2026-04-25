@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Security
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schema.auth_schema import TokenResponse, UserRegister, UserResponse, RefreshRequest, LogoutRequest
+from app.schema.auth_schema import TokenResponse, UserRegister, UserResponse, RefreshRequest, LogoutRequest, PromoteUserResponse
 from app.service.auth_service import AuthService
-from app.dependecies.auth import CurrentUser
+from app.dependecies.auth import CurrentUser, get_current_user
 from app.core.config import get_settings
 from app.core.limiter import limiter
 
@@ -37,3 +37,20 @@ def logout(body: LogoutRequest, db: Session = Depends(get_db), _user = CurrentUs
         access_token=body.access_token,
         refresh_token=body.refresh_token,
     )
+
+@router.patch("/users/{user_id}/promote", response_model=PromoteUserResponse)
+def promote_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user=Security(get_current_user, scopes=["admin"]),
+):
+    return AuthService(db).promote(user_id, current_user)
+
+
+@router.patch("/users/{user_id}/demote", response_model=PromoteUserResponse)
+def demote_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user=Security(get_current_user, scopes=["admin"]),
+):
+    return AuthService(db).demote(user_id, current_user)

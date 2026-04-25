@@ -45,3 +45,12 @@ class RefreshRequest(BaseModel):
 class LogoutRequest(BaseModel):
     access_token: str
     refresh_token: str | None = None
+
+class PromoteUserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    is_superuser: bool
+    message: str
+
+    model_config = {"from_attributes": True}

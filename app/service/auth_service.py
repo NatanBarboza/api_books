@@ -99,3 +99,65 @@ class AuthService:
                     self.revoked_repo.revoke(jti, expires_at)
             except JWTError:
                 pass
+
+    def promote(self, user_id: int, current_user: User) -> dict:
+        target = self.repo.get_by_id(user_id)
+
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found."
+            )
+        if target.id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot change your own role."
+            )
+        if target.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already has admin access."
+            )
+
+        target.is_superuser = True
+        self.repo.db.commit()
+        self.repo.db.refresh(target)
+
+        return {
+            "id": target.id,
+            "username": target.username,
+            "email": target.email,
+            "is_superuser": target.is_superuser,
+            "message": f"User '{target.username}' promoted to admin successfully."
+        }
+
+    def demote(self, user_id: int, current_user: User) -> dict:
+        target = self.repo.get_by_id(user_id)
+
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found."
+            )
+        if target.id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot change your own role."
+            )
+        if not target.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already has user access."
+            )
+
+        target.is_superuser = False
+        self.repo.db.commit()
+        self.repo.db.refresh(target)
+
+        return {
+            "id": target.id,
+            "username": target.username,
+            "email": target.email,
+            "is_superuser": target.is_superuser,
+            "message": f"User '{target.username}' demoted to user successfully."
+        }
