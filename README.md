@@ -147,6 +147,8 @@ python run.py
 * 🚪 Logout com revogação imediata dos tokens
 * 👤 Consulta do usuário autenticado (`/auth/me`)
 * 🛡️ Proteção de rotas por escopos (`user` e `admin`)
+* 🔼 Promoção de usuário para admin
+* 🔽 Rebaixamento de admin para usuário
 
 ---
 
@@ -168,6 +170,8 @@ A API utiliza autenticação baseada em **JWT (JSON Web Tokens)** com dois token
 | `POST` | `/auth/refresh` | Renovação do access token | Refresh token |
 | `POST` | `/auth/logout` | Logout e revogação dos tokens | Access token |
 | `GET` | `/auth/me` | Dados do usuário logado | Access token |
+| `PATCH` | `/auth/users/{id}/promote` | Promover usuário para admin | `admin` |
+| `PATCH` | `/auth/users/{id}/demote` | Rebaixar admin para usuário | `admin` |
 
 ### Como autenticar uma requisição
 
@@ -180,13 +184,21 @@ Authorization: Bearer <access_token>
 ### Escopos de acesso
 
 * `user` — acesso às rotas de leitura (`GET`)
-* `admin` — acesso total, incluindo criação, edição e exclusão
+* `admin` — acesso total, incluindo criação, edição, exclusão e gestão de papéis
 
-Usuários comuns recebem o escopo `user` automaticamente no login. Para obter o escopo `admin`, o campo `is_superuser` do usuário deve ser `true` no banco de dados:
+Usuários comuns recebem o escopo `user` automaticamente no login. A promoção e o rebaixamento são feitos via API por um admin:
 
-```sql
-UPDATE users SET is_superuser = 1 WHERE username = 'seu_username';
 ```
+PATCH /auth/users/{id}/promote   → promove para admin
+PATCH /auth/users/{id}/demote    → rebaixa para usuário
+```
+
+Regras de gestão de papéis:
+* Somente admins podem promover ou rebaixar outros usuários
+* Um admin não pode alterar o próprio papel
+* Promover quem já é admin retorna `400`
+* Rebaixar quem já é usuário retorna `400`
+* O novo papel só é refletido no token após um novo login
 
 ### Revogação de tokens
 
@@ -260,7 +272,7 @@ O formato padrão dos logs é:
 
 ## 🧪 Testes
 
-O projeto possui **67 testes automatizados** cobrindo todos os endpoints, rate limiting e limpeza de tokens.
+O projeto possui **84 testes automatizados** cobrindo todos os endpoints, rate limiting, limpeza de tokens e gestão de papéis.
 
 ### Executar todos os testes
 
@@ -275,6 +287,7 @@ pytest tests/test_book_routes.py -v
 pytest tests/test_auth_routes.py -v
 pytest tests/test_rate_limit.py -v
 pytest tests/test_scheduler.py -v
+pytest tests/test_promote_demote.py -v
 ```
 
 ### Cobertura dos testes
@@ -285,6 +298,7 @@ pytest tests/test_scheduler.py -v
 | `test_auth_routes.py` | 26 | registro, login, refresh, logout, tokens revogados |
 | `test_rate_limit.py` | 11 | limites exatos, edge cases, bloqueio e isolamento por IP |
 | `test_scheduler.py` | 13 | limpeza de tokens expirados, agendador e logging |
+| `test_promote_demote.py` | 17 | promoção, rebaixamento, regras de negócio e ciclo completo |
 
 ### Estrutura dos testes
 
@@ -296,7 +310,8 @@ books-api/
     ├── test_book_routes.py
     ├── test_auth_routes.py
     ├── test_rate_limit.py
-    └── test_scheduler.py
+    ├── test_scheduler.py
+    └── test_promote_demote.py
 ```
 
 Os testes utilizam um banco SQLite isolado definido em `TEST_DATABASE_URL` no `.env`, criado e destruído a cada teste para garantir isolamento total. Testes de rate limiting utilizam `X-Forwarded-For` com UUID único por teste para isolar contadores.
@@ -328,14 +343,15 @@ books-api/
 │   ├── __init__.py
 │   ├── test_auth_routes.py
 │   ├── test_book_routes.py
+│   ├── test_promote_demote.py
 │   ├── test_rate_limit.py
 │   └── test_scheduler.py
 └── app/
     ├── core/
     │   ├── config.py                   # configurações centralizadas
     │   ├── logging.py                  # logger centralizado
-    │   ├── scheduler.py               # limpeza automática de tokens
-    │   └── security.py                # hashing e JWT
+    │   ├── scheduler.py                # limpeza automática de tokens
+    │   └── security.py                 # hashing e JWT
     ├── models/
     │   ├── user_model.py
     │   └── revoked_token_model.py      # model da blocklist
@@ -358,7 +374,6 @@ books-api/
 
 ## 🗺️ Próximos passos
 
-* Endpoint para promover usuário a admin sem precisar acessar o banco diretamente
 * Painel de auditoria de autenticação
 * Rate limiting por usuário autenticado
 
