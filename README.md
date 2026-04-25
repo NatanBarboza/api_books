@@ -1,6 +1,6 @@
 # 📚 Books API
 
-API REST desenvolvida com foco em demonstrar conceitos de **CRUD (Create, Read, Update, Delete)**, **autenticação segura** e **proteção contra abuso com rate limiting**, utilizando Python e o framework FastAPI.
+API REST desenvolvida com foco em demonstrar conceitos de **CRUD (Create, Read, Update, Delete)**, **autenticação segura**, **proteção contra abuso com rate limiting** e **auditoria de eventos**, utilizando Python e o framework FastAPI.
 
 ---
 
@@ -149,6 +149,7 @@ python run.py
 * 🛡️ Proteção de rotas por escopos (`user` e `admin`)
 * 🔼 Promoção de usuário para admin
 * 🔽 Rebaixamento de admin para usuário
+* 📋 Painel de auditoria de eventos de autenticação
 
 ---
 
@@ -172,6 +173,7 @@ A API utiliza autenticação baseada em **JWT (JSON Web Tokens)** com dois token
 | `GET` | `/auth/me` | Dados do usuário logado | Access token |
 | `PATCH` | `/auth/users/{id}/promote` | Promover usuário para admin | `admin` |
 | `PATCH` | `/auth/users/{id}/demote` | Rebaixar admin para usuário | `admin` |
+| `GET` | `/auth/audit` | Painel de auditoria de eventos | `admin` |
 
 ### Como autenticar uma requisição
 
@@ -184,7 +186,7 @@ Authorization: Bearer <access_token>
 ### Escopos de acesso
 
 * `user` — acesso às rotas de leitura (`GET`)
-* `admin` — acesso total, incluindo criação, edição, exclusão e gestão de papéis
+* `admin` — acesso total, incluindo criação, edição, exclusão, gestão de papéis e auditoria
 
 Usuários comuns recebem o escopo `user` automaticamente no login. A promoção e o rebaixamento são feitos via API por um admin:
 
@@ -220,6 +222,46 @@ Toda requisição autenticada consulta a blocklist pelo `jti` do token. Um token
 
 ---
 
+## 📋 Auditoria
+
+A API registra automaticamente todos os eventos de autenticação na tabela `tb_audit_logs`.
+
+### Eventos registrados
+
+| Evento | Descrição |
+|---|---|
+| `register` | Novo usuário cadastrado |
+| `login_success` | Login bem-sucedido |
+| `login_failed` | Tentativa de login com credenciais inválidas |
+| `logout` | Logout realizado |
+| `refresh` | Access token renovado |
+| `promote` | Usuário promovido para admin |
+| `demote` | Admin rebaixado para usuário |
+
+### Consultando o painel
+
+O endpoint `GET /auth/audit` aceita os seguintes query params:
+
+| Param | Tipo | Descrição |
+|---|---|---|
+| `limit` | int | máximo de registros retornados (padrão 100, máximo 500) |
+| `offset` | int | deslocamento para paginação (padrão 0) |
+| `user_id` | int | filtrar eventos de um usuário específico |
+| `event` | string | filtrar por tipo de evento |
+
+Exemplos:
+
+```
+GET /auth/audit
+GET /auth/audit?event=login_failed
+GET /auth/audit?user_id=1
+GET /auth/audit?limit=10&offset=20
+```
+
+Os resultados são ordenados do mais recente para o mais antigo.
+
+---
+
 ## 🚦 Rate Limiting
 
 A API implementa proteção contra abuso utilizando SlowAPI.
@@ -252,7 +294,7 @@ O agendador é iniciado automaticamente junto com a aplicação e encerrado de f
 
 ---
 
-## 📋 Logging
+## 📝 Logging
 
 A aplicação utiliza um logger centralizado disponível em `app/core/logging.py`. Qualquer módulo pode importá-lo com:
 
@@ -272,7 +314,7 @@ O formato padrão dos logs é:
 
 ## 🧪 Testes
 
-O projeto possui **84 testes automatizados** cobrindo todos os endpoints, rate limiting, limpeza de tokens e gestão de papéis.
+O projeto possui **104 testes automatizados** cobrindo todos os endpoints, rate limiting, limpeza de tokens, gestão de papéis e auditoria.
 
 ### Executar todos os testes
 
@@ -288,6 +330,13 @@ pytest tests/test_auth_routes.py -v
 pytest tests/test_rate_limit.py -v
 pytest tests/test_scheduler.py -v
 pytest tests/test_promote_demote.py -v
+pytest tests/test_audit.py -v
+```
+
+### Executar um teste específico
+
+```bash
+pytest tests/test_audit.py::TestAuditFilters::test_results_are_ordered_by_most_recent -v
 ```
 
 ### Cobertura dos testes
@@ -299,6 +348,7 @@ pytest tests/test_promote_demote.py -v
 | `test_rate_limit.py` | 11 | limites exatos, edge cases, bloqueio e isolamento por IP |
 | `test_scheduler.py` | 13 | limpeza de tokens expirados, agendador e logging |
 | `test_promote_demote.py` | 17 | promoção, rebaixamento, regras de negócio e ciclo completo |
+| `test_audit.py` | 20 | geração de eventos, acesso, estrutura, filtros e paginação |
 
 ### Estrutura dos testes
 
@@ -311,7 +361,8 @@ books-api/
     ├── test_auth_routes.py
     ├── test_rate_limit.py
     ├── test_scheduler.py
-    └── test_promote_demote.py
+    ├── test_promote_demote.py
+    └── test_audit.py
 ```
 
 Os testes utilizam um banco SQLite isolado definido em `TEST_DATABASE_URL` no `.env`, criado e destruído a cada teste para garantir isolamento total. Testes de rate limiting utilizam `X-Forwarded-For` com UUID único por teste para isolar contadores.
@@ -324,9 +375,10 @@ O projeto utiliza **SQLite** como banco de dados padrão para facilitar a execu�
 
 ### Tabelas
 
-* `books` — dados dos livros
-* `users` — dados dos usuários
-* `revoked_tokens` — blocklist de tokens revogados (`jti` e `expires_at`)
+* `tb_books` — dados dos livros
+* `tb_users` — dados dos usuários
+* `tb_revoked_tokens` — blocklist de tokens revogados (`jti` e `expires_at`)
+* `tb_audit_logs` — registro de eventos de autenticação
 
 ---
 
@@ -342,6 +394,7 @@ books-api/
 ├── tests/
 │   ├── __init__.py
 │   ├── test_auth_routes.py
+│   ├── test_audit.py
 │   ├── test_book_routes.py
 │   ├── test_promote_demote.py
 │   ├── test_rate_limit.py
@@ -349,15 +402,20 @@ books-api/
 └── app/
     ├── core/
     │   ├── config.py                   # configurações centralizadas
+    │   ├── limiter.py                  # instância do rate limiter
     │   ├── logging.py                  # logger centralizado
-    │   ├── scheduler.py                # limpeza automática de tokens
-    │   └── security.py                 # hashing e JWT
+    │   ├── scheduler.py               # limpeza automática de tokens
+    │   └── security.py                # hashing e JWT
     ├── models/
+    │   ├── audit_model.py             # model de auditoria
+    │   ├── book_model.py
     │   ├── user_model.py
-    │   └── revoked_token_model.py      # model da blocklist
+    │   └── revoked_token_model.py     # model da blocklist
     ├── schema/
     │   └── auth_schema.py
     ├── repository/
+    │   ├── audit_repository.py        # repositório de auditoria
+    │   ├── book_repository.py
     │   ├── user_repository.py
     │   └── revoked_token_repository.py
     ├── service/
@@ -369,13 +427,6 @@ books-api/
     └── dependecies/
         └── auth.py
 ```
-
----
-
-## 🗺️ Próximos passos
-
-* Painel de auditoria de autenticação
-* Rate limiting por usuário autenticado
 
 ---
 
